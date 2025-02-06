@@ -1,0 +1,32 @@
+﻿<hc:Window x:Class="WPFUpdateDemo.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WPFUpdateDemo"
+        xmlns:hc="https://handyorg.github.io/handycontrol"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="400" Width="600" Background="White">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="160"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
+            <Button Content="Button0" Width="100" Height="30" Margin="0 0 10 0" Click="TestButton0Click"/>
+            <Button Content="Button1" Width="100" Height="30" Margin="10 0 0 0" Click="TestButton1Click"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Vertical" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <TextBlock x:Name="downloadedLength" Text="-MB"/>
+                <TextBlock Text=" / "/>
+                <TextBlock x:Name="totalLength" Text="-MB"/>
+            </StackPanel>
+            <ProgressBar x:Name="downloadProgressBar" Margin="0 10 0 10" Width="400" Height="20"/>
+            <ProgressBar x:Name="fileProgressBar" Margin="0 10 0 10" Width="400" Height="20"/>
+        </StackPanel>
+        
+    </Grid>
+</hc:Window>
