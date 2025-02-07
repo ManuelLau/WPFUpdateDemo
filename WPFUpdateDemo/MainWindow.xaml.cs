@@ -1,4 +1,5 @@
-﻿using System.Windows;
+﻿using System.Reflection;
+using System.Windows;
 
 namespace WPFUpdateDemo;
 
@@ -17,16 +18,26 @@ public partial class MainWindow
         {
             mainWindow = this
         };
+        versionText.Text = $"当前版本 v{Assembly.GetExecutingAssembly().GetName().Version}";
+
+        // 启动时自动检查新版本
+        CheckNewVersion();
     }
 
-    private void TestButton0Click(object sender, RoutedEventArgs e)
+    private void UpdateButtonClick(object sender, RoutedEventArgs e)
     {
-        
         appUpdateTool.UpdateApp();
     }
 
-    private void TestButton1Click(object sender, RoutedEventArgs e)
+    private async void CheckNewVersion()
     {
-        
+        await Task.Run(() =>
+        {
+            if (AppUpdateTool.CheckNewVersion(out string? latestVersionString, out string? downloadUrl))
+            {
+                if (string.IsNullOrEmpty(latestVersionString))
+                    outputText.Text = "检测到新版本 v" + latestVersionString;
+            }
+        });
     }
 }

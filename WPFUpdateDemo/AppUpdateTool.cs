@@ -19,37 +19,21 @@ namespace WPFUpdateDemo;
 
 public class AppUpdateTool
 {
-    private const string testApiUrl0 = "https://api.github.com/repos/ManuelLau/MaaBATapAssistant/releases";
-    private const string testApiUrl1 = "https://api.github.com/repos/SweetSmellFox/MFAWPF/releases";
-    private const string testApiUrl2 = "https://api.github.com/repos/MaaXYZ/MaaFramework/releases";
+    private const string apiUrl = "https://api.github.com/repos/ManuelLau/WPFUpdateDemo/releases";
+    private const string platformTag = "win-x86";
     public required MainWindow mainWindow;
 
     public async void UpdateApp()
     {
-        string platformTag = "win-x86";
-        // 获取并检查Version是否非空
-        Version? localVersion = GetLocalVersion();
-        string? latestVersionString = string.Empty;
-        string? downloadUrl = string.Empty;
-        GetLatestVersionAndDownloadUrl(testApiUrl1, platformTag, ref latestVersionString, ref downloadUrl);
-        if (localVersion is null || string.IsNullOrEmpty(latestVersionString) || string.IsNullOrEmpty(downloadUrl))
+        if (!CheckNewVersion(out string? latestVersionString, out string? downloadUrl))
         {
-            Debug.WriteLine("LocalVersion或LatestVersionString或DownloadUrl为空");
+            Debug.WriteLine("没有发现新的版本");
+            mainWindow.outputText.Text = "当前已是最新版本";
             return;
         }
+        Debug.WriteLine($"发现新版本 v{latestVersionString}");
 
-        // 比较版本号大小
-        Version latestVersion = new(RemoveFirstLetterV(latestVersionString));
-        Debug.WriteLine($"LocalVersion:{localVersion} | LatestVersion:{latestVersion}");
-        Debug.WriteLine("DownloadUrl:" + downloadUrl);
-        if (localVersion.CompareTo(latestVersion) >= 0)
-        {
-            Debug.WriteLine("没有发现更新的版本");
-            return;
-        }
-        Debug.WriteLine("发现新版本!");
-
-        // 创建临时文件存放路径temp\，并下载+解压文件到这个路径下
+        // 创建临时文件存放路径temp\
         var tempFileDirectory = @".\temp";
         if (!Directory.Exists(tempFileDirectory))
         {
@@ -62,49 +46,32 @@ public class AppUpdateTool
         {
             tempFileName = downloadUrl.Substring(lastIndex + 1);
         }
-
+        // 下载+解压文件到temp\下
+        mainWindow.outputText.Text = "正在下载 " + tempFileName;
         if (!await DownloadAndExtractFile(downloadUrl, tempFileDirectory, tempFileName))
         {
             Debug.WriteLine("下载文件失败!");
+            mainWindow.outputText.Text = "下载文件失败!";
             return;
         }
         else
         {
             Debug.WriteLine("文件下载完成");
+            mainWindow.outputText.Text = $"文件{tempFileName}下载完成";
         }
 
         // 替换旧文件，重启软件
-        /*
-        Application.Current.Shutdown();
-
-        // 确保在关闭后继续执行
-        await Task.Delay(1000); // 确保应用程序完全关闭
-
-        // 删除旧文件夹
-        List<string> files = ["config", "temp"];
-        DeleteOldFiles(AppContext.BaseDirectory, files);
-
-        // 替换为新文件夹
-        Directory.Move(tempUpdateFolder, targetFolder);
-
-        // 重新启动应用程序
-        Process.Start(Path.Combine(targetFolder, "YourApp.exe")); // 替换成您的可执行文件名
-        */
-
-        
         var currentExeFileName = Assembly.GetEntryAssembly().GetName().Name + ".exe";
         var utf8Bytes = Encoding.UTF8.GetBytes(AppContext.BaseDirectory);
         var utf8BaseDirectory = Encoding.UTF8.GetString(utf8Bytes);
-        var batFilePath = Path.Combine(utf8BaseDirectory, "temp", "update_mfa.bat");
+        var batFilePath = Path.Combine(utf8BaseDirectory, "temp", "update.bat");
         await using (StreamWriter sw = new(batFilePath))
         {
             await sw.WriteLineAsync("@echo off");
             await sw.WriteLineAsync("chcp 65001");
             await sw.WriteLineAsync("ping 127.0.0.1 -n 3 > nul");
             var extractedPath = $"\"{utf8BaseDirectory}temp\\{Path.GetFileNameWithoutExtension(tempFileName)}\\*.*\"";
-            Debug.WriteLine(extractedPath);
             var targetPath = $"\"{utf8BaseDirectory}\"";
-            Debug.WriteLine(targetPath);
             await sw.WriteLineAsync($"xcopy /E /Y {extractedPath} {targetPath}");
             await sw.WriteLineAsync($"start /d \"{utf8BaseDirectory}\" {currentExeFileName}");
             await sw.WriteLineAsync("ping 127.0.0.1 -n 1 > nul");
@@ -119,6 +86,30 @@ public class AppUpdateTool
         Application.Current.Shutdown();
     }
 
+    public static bool CheckNewVersion(out string? latestVersionString, out string? downloadUrl)
+    {
+        // 获取并检查Version是否非空
+        Version? localVersion = Assembly.GetExecutingAssembly().GetName().Version;
+        if (!GetLatestVersionAndDownloadUrl(apiUrl, platformTag, out latestVersionString, out downloadUrl))
+        {
+            return false;
+        }
+        if (localVersion is null || string.IsNullOrEmpty(latestVersionString) || string.IsNullOrEmpty(downloadUrl))
+        {
+            Debug.WriteLine("LocalVersion或LatestVersionString或DownloadUrl为空");
+            return false;
+        }
+
+        // 比较版本号大小
+        Version latestVersion = new(RemoveFirstLetterV(latestVersionString));
+        Debug.WriteLine($"LocalVersion:{localVersion} | LatestVersion:{latestVersion}");
+        Debug.WriteLine("DownloadUrl:" + downloadUrl);
+        if (localVersion.CompareTo(latestVersion) >= 0)
+        {
+            return false;
+        }
+        return true;
+    }
 
     /// <summary>
     /// 通过api获取最新的版本号及其下载链接，不论是否为pre-release版本，此方法获取的json体积更小，更节省资源。
@@ -127,28 +118,30 @@ public class AppUpdateTool
     /// <para>platformTag字段为文件名中含有的平台标识，根据自己的需求填写</para>
     /// </summary>
     /// <param name="apiUrl">Api链接，不要带/latest后缀</param>
-    private static void GetLatestVersionAndDownloadUrl(string apiUrl, string platformTag, ref string? _latestVersionString, ref string? _downloadUrl)
+    private static bool GetLatestVersionAndDownloadUrl(string apiUrl, string platformTag, out string? latestVersionString, out string? downloadUrl)
     {
         apiUrl += "/latest"; //获取最新版本，不论是否为pre-release
+        latestVersionString = string.Empty;
+        downloadUrl = string.Empty;
         using var httpClient = new HttpClient();
         httpClient.DefaultRequestHeaders.UserAgent.TryParseAdd("request");
         httpClient.DefaultRequestHeaders.Accept.TryParseAdd("application/json");
 
         try
         {
-            var response = httpClient.GetAsync(apiUrl).Result;
+            using var response = httpClient.GetAsync(apiUrl).Result;
             if (response.IsSuccessStatusCode)
             {
-                var read = response.Content.ReadAsStringAsync();
+                using var read = response.Content.ReadAsStringAsync();
                 read.Wait();
                 string jsonString = read.Result;
                 JObject json = JObject.Parse(jsonString);
                 if (json == null)
                 {
                     Debug.WriteLine("获取的Json为空");
-                    return;
+                    return false;
                 }
-                _latestVersionString = json["tag_name"]?.ToString();
+                latestVersionString = json["tag_name"]?.ToString();
 
                 if (json["assets"] is JArray assetsJsonArray && assetsJsonArray.Count > 0)
                 {
@@ -157,11 +150,11 @@ public class AppUpdateTool
                         string? browserDownloadUrl = assetJsonObject["browser_download_url"]?.ToString();
                         if (!string.IsNullOrEmpty(browserDownloadUrl))
                         {
-                            if (true || browserDownloadUrl.Contains(platformTag))
+                            if (browserDownloadUrl.Contains(platformTag))
                             {
                                 if (browserDownloadUrl.EndsWith(".zip") || browserDownloadUrl.EndsWith(".7z") || browserDownloadUrl.EndsWith(".rar"))
                                 {
-                                    _downloadUrl = browserDownloadUrl;
+                                    downloadUrl = browserDownloadUrl;
                                     break;
                                 }
                             }
@@ -169,31 +162,20 @@ public class AppUpdateTool
                     }
                 }
             }
-            else if (response.StatusCode == HttpStatusCode.Forbidden && response.ReasonPhrase.Contains("403"))
-            {
-                Debug.WriteLine("GitHub API速率限制已超出，请稍后再试");
-                throw new Exception("GitHub API速率限制已超出，请稍后再试");
-            }
             else
             {
-                Debug.WriteLine($"请求GitHub时发生错误: {response.StatusCode} - {response.ReasonPhrase}");
-                throw new Exception($"请求GitHub时发生错误: {response.StatusCode} - {response.ReasonPhrase}");
+                Debug.WriteLine($"网络请求出错: {response.StatusCode} - {response.ReasonPhrase}");
             }
         }
         catch (Exception e)
         {
-            Debug.WriteLine($"处理GitHub响应时发生错误: {e.Message}");
-            throw new Exception($"处理GitHub响应时发生错误: {e.Message}");
+            Debug.WriteLine($"网络请求出错: {e.Message}");
         }
         finally
         {
             httpClient.Dispose();
         }
-    }
-
-    private static Version? GetLocalVersion()
-    {
-        return Assembly.GetExecutingAssembly().GetName().Version;
+        return true;
     }
 
     /// <summary>去除版本号前的v或者V</summary>
@@ -323,13 +305,10 @@ public class AppUpdateTool
     }
 
     /// <summary>
-    /// 下载并解压文件，解压支持.zip .rar .7z，需要其他格式自行另外处理
+    /// 下载并解压文件，解压支持.zip .rar .7z，其他格式需要新增代码处理
     /// </summary>
     private async Task<bool> DownloadAndExtractFile(string url, string tempFileDirectory, string tempFileName)
     {
-        string testDownloadUrl = "https://gitee.com/akwkevin/aistudio.-wpf.-aclient/releases/download/2.0.0.0/Release2.0.0.0.rar";
-        //url = testDownloadUrl;
-        
         string tempFilePath = Path.Combine(tempFileDirectory, tempFileName);
         Debug.WriteLine(tempFilePath);
         try
@@ -350,8 +329,9 @@ public class AppUpdateTool
                 if (contentLength.HasValue)
                 {
                     double percentage = ((double)totalRead / contentLength.Value) * 100;
-                    mainWindow.downloadedLength.Text = ((double)totalRead / 1024f / 1024f).ToString("0.00") + "MB";
-                    mainWindow.totalLength.Text = ((double)contentLength / 1024f / 1024f).ToString("0.00") + "MB";
+                    string totalReadMB = ((double)totalRead / 1024f / 1024f).ToString("0.00");
+                    string contentLengthMB = ((double)contentLength / 1024f / 1024f).ToString("0.00");
+                    mainWindow.downloadInfoText.Text = $"{totalReadMB}MB / {contentLengthMB}MB";
                     mainWindow.downloadProgressBar.Value = percentage;
                 }
                 // 保存文件
@@ -413,32 +393,5 @@ public class AppUpdateTool
             return false;
         }
         return true;
-    }
-
-    /// <summary>
-    /// 删除文件夹的全部内容，除了指定文件或文件夹，例如删除\config文件夹外的内容，以便用于更新程序且保留配置文件
-    /// </summary>
-    private static void DeleteOldFiles(string targetFolder, List<string> preserveItems)
-    {
-        // 将保留项的完整路径转换为集合
-        HashSet<string> preservePaths = new();
-        foreach (var item in preserveItems)
-        {
-            preservePaths.Add(Path.Combine(targetFolder, item));
-        }
-        foreach (var file in Directory.GetFiles(targetFolder))
-        {
-            if (!preservePaths.Contains(file))
-            {
-                File.Delete(file);
-            }
-        }
-        foreach (var directory in Directory.GetDirectories(targetFolder))
-        {
-            if (!preservePaths.Contains(directory))
-            {
-                Directory.Delete(directory, true); // true表示递归删除
-            }
-        }
     }
 }

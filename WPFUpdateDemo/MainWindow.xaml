@@ -6,26 +6,22 @@
         xmlns:local="clr-namespace:WPFUpdateDemo"
         xmlns:hc="https://handyorg.github.io/handycontrol"
         mc:Ignorable="d"
-        Title="MainWindow" Height="400" Width="600" Background="White">
+        Title="MainWindow" Height="300" Width="500" Background="White">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="160"/>
+            <RowDefinition Height="100"/>
             <RowDefinition/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center">
-            <Button Content="Button0" Width="100" Height="30" Margin="0 0 10 0" Click="TestButton0Click"/>
-            <Button Content="Button1" Width="100" Height="30" Margin="10 0 0 0" Click="TestButton1Click"/>
+        <StackPanel Grid.Row="0" Orientation="Vertical" VerticalAlignment="Center">
+            <TextBlock x:Name="versionText" Text="当前版本：" HorizontalAlignment="Center" Margin="0 0 0 10"/>
+            <Button Content="检查并下载更新" Width="120" Height="30" Margin="0 0 10 0" Click="UpdateButtonClick"/>
         </StackPanel>
 
         <StackPanel Grid.Row="1" Orientation="Vertical" VerticalAlignment="Center">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock x:Name="downloadedLength" Text="-MB"/>
-                <TextBlock Text=" / "/>
-                <TextBlock x:Name="totalLength" Text="-MB"/>
-            </StackPanel>
-            <ProgressBar x:Name="downloadProgressBar" Margin="0 10 0 10" Width="400" Height="20"/>
-            <ProgressBar x:Name="fileProgressBar" Margin="0 10 0 10" Width="400" Height="20"/>
+            <TextBlock x:Name="outputText" Margin="0 4 0 4" HorizontalAlignment="Center" />
+            <TextBlock x:Name="downloadInfoText" Margin="0 4 0 4" HorizontalAlignment="Center" />
+            <ProgressBar x:Name="downloadProgressBar" Margin="0 4 0 4" Width="400" Height="20"/>
         </StackPanel>
         
     </Grid>
